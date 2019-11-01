@@ -3,6 +3,7 @@ import {StatusBar, View, ImageBackground, Dimensions} from 'react-native';
 import {LineChart} from 'react-native-chart-kit';
 import {Text, Circle, G, TSpan, Line} from 'react-native-svg';
 import CircularProgress from './src/components/CircularProgress.component';
+import AnimatedCircularProgress from './src/components/AnimatedCircularProgress.component';
 
 class App extends React.Component {
   constructor(props) {
@@ -63,10 +64,13 @@ class App extends React.Component {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <CircularProgress
-              percent={parseInt((688 / 999) * 100)}
-              score={688}
-              total={999}
+            <AnimatedCircularProgress
+              size={200}
+              width={10}
+              fill={100}
+              tintColor="red"
+              onAnimationComplete={() => console.log('onAnimationComplete')}
+              backgroundColor="transparent"
             />
             <LineChart
               ref={this.chartRef}

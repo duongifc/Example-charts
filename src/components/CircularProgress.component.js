@@ -1,222 +1,185 @@
 import React from 'react';
-import {Text, View} from 'react-native';
+import PropTypes from 'prop-types';
+import {View, ViewPropTypes, Text} from 'react-native';
+import {Svg, Path, G} from 'react-native-svg';
 
-import styles, {rotateByStyle} from './CircularProgress.component.styles';
-import CONSTANTS from './CircularProgress.constants';
-
-const renderThirdLayer = (
-  percent,
-  commonStyles,
-  ringColorStyle,
-  ringBgColorStyle,
-  clockwise,
-  bgRingWidth,
-  progressRingWidth,
-  innerRingStyle,
-  startDegrees,
-) => {
-  let rotation = CONSTANTS.ROTATE_DEGREE + startDegrees;
-  let offsetLayerRotation = CONSTANTS.INITIAL_ROTATION_DEGREE + startDegrees;
-  if (!clockwise) {
-    rotation += CONSTANTS.HALF_CIRCLE_DEGREE;
-    offsetLayerRotation += CONSTANTS.HALF_CIRCLE_DEGREE;
+export default class CircularProgress extends React.PureComponent {
+  polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+    var angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+    return {
+      x: centerX + radius * Math.cos(angleInRadians),
+      y: centerY + radius * Math.sin(angleInRadians),
+    };
   }
-  if (percent > CONSTANTS.HALF_SEMICIRCLE_LIMIT_DEGREE) {
-    /**
-     * Third layer circles default rotation is kept 45 degrees for clockwise rotation, so by default it occupies the right half semicircle.
-     * Since first 50 percent is already taken care  by second layer circle, hence we subtract it
-     * before passing to the rotateByStyle function
-     **/
 
-    return (
-      <View
-        style={[
-          styles.secondProgressLayer,
-          rotateByStyle(
-            percent - CONSTANTS.HALF_SEMICIRCLE_LIMIT_DEGREE,
-            rotation,
-            clockwise,
-          ),
-          commonStyles,
-          ringColorStyle,
-          {borderWidth: progressRingWidth},
-        ]}
-      />
-    );
-  } else {
-    return (
-      <View
-        style={[
-          styles.offsetLayer,
-          innerRingStyle,
-          ringBgColorStyle,
-          {
-            transform: [{rotateZ: `${offsetLayerRotation}deg`}],
-            borderWidth: bgRingWidth,
-          },
-        ]}
-      />
-    );
+  circlePath(x, y, radius, startAngle, endAngle) {
+    var start = this.polarToCartesian(x, y, radius, endAngle * 0.9999);
+    var end = this.polarToCartesian(x, y, radius, startAngle);
+    var largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+    var d = [
+      'M',
+      start.x,
+      start.y,
+      'A',
+      radius,
+      radius,
+      0,
+      largeArcFlag,
+      0,
+      end.x,
+      end.y,
+    ];
+    return d.join(' ');
   }
-};
 
-const CircularProgress = ({
-  percent,
-  radius,
-  bgRingWidth,
-  progressRingWidth,
-  ringColor,
-  ringBorderColor,
-  ringBackgroundColor,
-  textFontSize,
-  textFontWeight,
-  clockwise,
-  bgColor,
-  startDegrees,
+  clampFill = fill => Math.min(100, Math.max(0, fill));
 
-  score,
-  total,
-}) => {
-  const commonStyles = {
-    width: radius * 2,
-    height: radius * 2,
-    borderRadius: radius,
-  };
-
-  /**
-   * Calculate radius for base layer and offset layer.
-   * If progressRingWidth == bgRingWidth, innerRadius is equal to radius
-   **/
-  const widthDiff = progressRingWidth - bgRingWidth;
-  const innerRadius = radius - progressRingWidth + bgRingWidth + widthDiff / 2;
-
-  const innerRingStyle = {
-    width: innerRadius * 2,
-    height: innerRadius * 2,
-    borderRadius: innerRadius,
-  };
-
-  const ringColorStyle = {
-    borderRightColor: ringColor,
-    borderTopColor: ringColor,
-  };
-
-  const ringBgColorStyle = {
-    borderRightColor: ringBorderColor,
-    borderTopColor: ringBorderColor,
-  };
-
-  const thickOffsetRingStyle = {
-    borderRightColor: bgColor,
-    borderTopColor: bgColor,
-  };
-
-  let rotation = CONSTANTS.INITIAL_ROTATION_DEGREE + startDegrees;
-  /**
-   * If we want our ring progress to be displayed in anti-clockwise direction
-   **/
-  if (!clockwise) {
-    rotation += CONSTANTS.HALF_CIRCLE_DEGREE;
-  }
-  let firstProgressLayerStyle;
-  /* when ther ring's border widths are different and percent is less than 50, then we need an offsetLayer
-   * before the original offser layer to avoid ring color of the thick portion to be visible in the background.
-   */
-  let displayThickOffsetLayer = false;
-  if (percent > CONSTANTS.HALF_SEMICIRCLE_LIMIT_DEGREE) {
-    firstProgressLayerStyle = rotateByStyle(
-      CONSTANTS.HALF_SEMICIRCLE_LIMIT_DEGREE,
+  render() {
+    const {
+      size,
+      width,
+      backgroundWidth,
+      tintColor,
+      backgroundColor,
+      style,
       rotation,
-      clockwise,
+      lineCap,
+      arcSweepAngle,
+      fill,
+      children,
+      childrenContainerStyle,
+      padding,
+      renderCap,
+      dashedBackground,
+    } = this.props;
+
+    const maxWidthCircle = backgroundWidth
+      ? Math.max(width, backgroundWidth)
+      : width;
+    const sizeWithPadding = size / 2 + padding / 2;
+    const radius = size / 2 - maxWidthCircle / 2 - padding / 2;
+
+    const backgroundPath = this.circlePath(
+      sizeWithPadding,
+      sizeWithPadding,
+      radius,
+      0,
+      arcSweepAngle,
     );
-  } else {
-    firstProgressLayerStyle = rotateByStyle(percent, rotation, clockwise);
-    if (progressRingWidth > bgRingWidth) {
-      displayThickOffsetLayer = true;
-    }
-  }
+    const currentFillAngle = (arcSweepAngle * this.clampFill(fill)) / 100;
+    const circlePath = this.circlePath(
+      sizeWithPadding,
+      sizeWithPadding,
+      radius,
+      0,
+      currentFillAngle,
+    );
+    const coordinate = this.polarToCartesian(
+      sizeWithPadding,
+      sizeWithPadding,
+      radius,
+      currentFillAngle,
+    );
+    const cap = this.props.renderCap
+      ? this.props.renderCap({center: coordinate})
+      : null;
 
-  let offsetLayerRotation = CONSTANTS.INITIAL_ROTATION_DEGREE + startDegrees;
-  if (!clockwise) {
-    offsetLayerRotation += CONSTANTS.HALF_CIRCLE_DEGREE;
-  }
+    const offset = size - maxWidthCircle * 2;
 
-  return (
-    <View style={[styles.container, {width: radius * 2, height: radius * 2}]}>
+    const localChildrenContainerStyle = {
+      ...{
+        position: 'absolute',
+        left: maxWidthCircle + padding / 2,
+        top: maxWidthCircle + padding / 2,
+        width: offset,
+        height: offset,
+        borderRadius: offset / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      },
+      ...childrenContainerStyle,
+    };
+
+    const dashedBackgroundStyle =
+      dashedBackground.gap > 0
+        ? `${dashedBackground.width}, ${dashedBackground.gap}`
+        : dashedBackground;
+
+    const strokeDasharray = Object.values(dashedBackgroundStyle).map(value =>
+      parseInt(value),
+    );
+
+    return (
       <View
         style={[
-          styles.baseLayer,
-          innerRingStyle,
+          style,
           {
-            borderColor: ringBorderColor,
-            borderWidth: bgRingWidth,
-            backgroundColor: ringBackgroundColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: size + padding,
           },
-        ]}
-      />
-      <View
-        style={[
-          styles.firstProgressLayer,
-          firstProgressLayerStyle,
-          commonStyles,
-          ringColorStyle,
-          {borderWidth: progressRingWidth},
-        ]}
-      />
-      {displayThickOffsetLayer && (
-        <View
-          style={[
-            styles.offsetLayer,
-            commonStyles,
-            thickOffsetRingStyle,
-            {
-              transform: [{rotateZ: `${offsetLayerRotation}deg`}],
-              borderWidth: progressRingWidth,
-            },
-          ]}
-        />
-      )}
-      {renderThirdLayer(
-        percent,
-        commonStyles,
-        ringColorStyle,
-        ringBgColorStyle,
-        clockwise,
-        bgRingWidth,
-        progressRingWidth,
-        innerRingStyle,
-        startDegrees,
-      )}
-      <View style={[styles.display, styles.container]}>
-        <Text style={styles.text}>Current Score</Text>
-        <Text
-          style={[
-            styles.text,
-            {fontSize: textFontSize, fontWeight: textFontWeight},
-          ]}>
-          {score}
-        </Text>
-        <Text style={styles.text}>out of {total}</Text>
-        <Text style={[styles.text, styles.statusText]}>You're doing great</Text>
+        ]}>
+        <View style={{position: 'absolute'}}>
+          <Svg width={size + padding} height={size + padding}>
+            <G rotation={rotation} originX={size / 2} originY={size / 2}>
+              {backgroundColor && (
+                <Path
+                  d={backgroundPath}
+                  stroke={backgroundColor}
+                  strokeWidth={backgroundWidth || width}
+                  strokeLinecap={lineCap}
+                  strokeDasharray={strokeDasharray}
+                  fill="rgba(0, 0, 0, 0.8)"
+                />
+              )}
+              {fill > 0 && (
+                <Path
+                  d={circlePath}
+                  stroke={tintColor}
+                  strokeWidth={width}
+                  strokeLinecap={lineCap}
+                  fill="transparent"
+                />
+              )}
+              {cap}
+            </G>
+          </Svg>
+        </View>
+        {children && (
+          <View style={localChildrenContainerStyle}>{children(fill)}</View>
+        )}
+        <Text style={{color: 'white'}}>Current score</Text>
+        <Text style={{color: 'white', fontSize: 30}}>688</Text>
+        <Text style={{color: 'white', fontSize: 12}}>of toal 999</Text>
       </View>
-    </View>
-  );
+    );
+  }
+}
+
+CircularProgress.propTypes = {
+  style: ViewPropTypes.style,
+  size: PropTypes.number.isRequired,
+  fill: PropTypes.number.isRequired,
+  width: PropTypes.number.isRequired,
+  backgroundWidth: PropTypes.number,
+  tintColor: PropTypes.string,
+  backgroundColor: PropTypes.string,
+  rotation: PropTypes.number,
+  lineCap: PropTypes.string,
+  arcSweepAngle: PropTypes.number,
+  children: PropTypes.func,
+  childrenContainerStyle: ViewPropTypes.style,
+  padding: PropTypes.number,
+  renderCap: PropTypes.func,
+  dashedBackground: PropTypes.object,
 };
 
-// default values for props
 CircularProgress.defaultProps = {
-  percent: 0,
-  radius: 150,
-  bgRingWidth: 5,
-  progressRingWidth: 10,
-  ringColor: '#3498db',
-  ringBorderColor: 'transparent',
-  ringBackgroundColor: 'rgba(52, 52, 52, 0.8)',
-  textFontSize: 100,
-  textFontWeight: 'bold',
-  clockwise: true,
-  bgColor: 'blue',
-  startDegrees: 0,
+  tintColor: 'black',
+  rotation: 90,
+  lineCap: 'butt',
+  arcSweepAngle: 360,
+  padding: 0,
+  dashedBackground: {width: 0, gap: 0},
 };
-
-export default CircularProgress;
