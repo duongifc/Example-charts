@@ -1,0 +1,8 @@
+const constants = {
+  ROTATE_DEGREE: 45,
+  INITIAL_ROTATION_DEGREE: -135,
+  HALF_CIRCLE_DEGREE: 180,
+  HALF_SEMICIRCLE_LIMIT_DEGREE: 50,
+};
+
+export default constants;
